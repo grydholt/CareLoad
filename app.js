@@ -38,8 +38,10 @@
   // ---------------------------------------------------------------------
   var state = {
     tasks: MOCK.tasks.map(function (t) { return Object.assign({}, t); }),
-    view: 'idag',
+    view: 'kalender',
+    calMode: 'dag', // Kalender subview: 'dag' | 'uge' | 'maaned'
     viewingAs: 'all', // 'all' or a member id; a member id filters every view
+    dayAnchor: startOfDay(new Date()),
     weekStart: startOfWeek(new Date()),
     monthAnchor: firstOfMonth(new Date()),
     openSheet: null,   // null | 'detail' | 'new'
@@ -64,8 +66,11 @@
   // ---------------------------------------------------------------------
   // Date helpers
   // ---------------------------------------------------------------------
+  function startOfDay(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
   function startOfWeek(date) {
-    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var d = startOfDay(date);
     return addDays(d, -((d.getDay() + 6) % 7));
   }
   function firstOfMonth(date) {
@@ -222,14 +227,16 @@
   }
 
   // ---------------------------------------------------------------------
-  // View: I dag (today's tasks grouped by category)
+  // Kalender subview: Dag (one day's tasks grouped by category)
   // ---------------------------------------------------------------------
-  function renderToday() {
-    var today = new Date();
-    // Today's dated tasks, plus undated watch items ("keep in mind"
-    // has no due date, so it is always part of today).
-    var list = visibleTasks().filter(function (t) { return !t.start; })
-      .concat(tasksOnDay(today));
+  function renderDay() {
+    var day = state.dayAnchor;
+    // The day's dated tasks, plus undated watch items when looking at
+    // today ("keep in mind" has no due date, so it belongs to now).
+    var list = tasksOnDay(day);
+    if (isToday(day)) {
+      list = visibleTasks().filter(function (t) { return !t.start; }).concat(list);
+    }
     var groups = CATEGORIES.map(function (c) {
       var items = list.filter(function (t) { return categoryOf(t) === c.id; });
       if (!items.length) return ''; // skip empty categories
@@ -240,11 +247,39 @@
     }).join('');
 
     var body = groups ||
-      '<div class="empty-state"><p>Ingen opgaver i dag' +
+      '<div class="empty-state"><p>Ingen opgaver denne dag' +
       (state.viewingAs !== 'all' ? ' for ' + esc(state.viewingAs) : '') + '.</p></div>';
 
-    return '<h2 class="view-title">I dag · ' + esc(fmtDateFull(today)) + '</h2>' +
+    var label = fmtDateFull(day) +
+      (isToday(day) ? ' <span class="today-tag">i dag</span>' : '');
+
+    return '<div class="week-nav">' +
+      '<button type="button" class="btn-icon" data-action="prev-day" aria-label="Forrige dag">‹</button>' +
+      '<h2 class="week-label day-label">' + label + '</h2>' +
+      '<button type="button" class="btn-icon" data-action="next-day" aria-label="Næste dag">›</button>' +
+      '<button type="button" class="btn btn-small" data-action="today">I dag</button>' +
+      '</div>' +
       '<div class="today-groups">' + body + '</div>';
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Kalender (sub-menu bar switching between Dag / Uge / Måned)
+  // ---------------------------------------------------------------------
+  var CAL_MODES = [
+    { id: 'dag', label: 'Dag' },
+    { id: 'uge', label: 'Uge' },
+    { id: 'maaned', label: 'Måned' }
+  ];
+
+  function renderKalender() {
+    var subtabs = CAL_MODES.map(function (m) {
+      return '<button type="button" class="pill subtab" aria-pressed="' + (state.calMode === m.id ? 'true' : 'false') + '"' +
+        ' data-action="set-calmode" data-mode="' + m.id + '">' + m.label + '</button>';
+    }).join('');
+    var body = state.calMode === 'dag' ? renderDay()
+      : state.calMode === 'uge' ? renderWeek()
+      : renderMonth();
+    return '<div class="subtabs" role="group" aria-label="Kalendervisning">' + subtabs + '</div>' + body;
   }
 
   // ---------------------------------------------------------------------
@@ -394,7 +429,7 @@
       '<h2 class="week-label">' + MONTHS[anchor.getMonth()] + ' ' + anchor.getFullYear() + '</h2>' +
       '<button type="button" class="btn-icon" data-action="next-month" aria-label="Næste måned">›</button>' +
       '</div>' +
-      '<p class="view-sub">Tryk på en dag for at hoppe til ugen.</p>' +
+      '<p class="view-sub">Tryk på en dag for at se den i dagsvisningen.</p>' +
       '<div class="month-grid"><div class="month-head">' + heads + '</div><div class="month-cells">' + cells + '</div></div>';
   }
 
@@ -561,17 +596,18 @@
 
     created.forEach(function (t) { state.tasks.push(t); });
 
-    // Jump so the new task is visible.
+    // Jump to the calendar so the new task is visible.
     var firstDated = created.find(function (t) { return t.start; });
     if (firstDated) {
       var d0 = parseLocal(firstDated.start);
+      state.dayAnchor = startOfDay(d0);
       state.weekStart = startOfWeek(d0);
       state.monthAnchor = firstOfMonth(d0);
-      if (state.view === 'forsinket') state.view = 'uge';
-      if (state.view === 'idag' && !sameDay(d0, new Date())) state.view = 'uge';
-    } else if (state.view !== 'uge' && state.view !== 'idag') {
-      state.view = 'uge'; // undated watch items live on the Husk shelf
+    } else {
+      state.dayAnchor = startOfDay(new Date());
+      state.calMode = 'dag'; // undated watch items show under today
     }
+    state.view = 'kalender';
     closeSheet();
     render();
   }
@@ -585,9 +621,13 @@
 
   var actions = {
     'switch-view': function (el) { state.view = el.dataset.view; render(); },
+    'set-calmode': function (el) { state.calMode = el.dataset.mode; render(); },
+    'prev-day': function () { state.dayAnchor = addDays(state.dayAnchor, -1); render(); },
+    'next-day': function () { state.dayAnchor = addDays(state.dayAnchor, 1); render(); },
     'prev-week': function () { state.weekStart = addDays(state.weekStart, -7); render(); },
     'next-week': function () { state.weekStart = addDays(state.weekStart, 7); render(); },
     'today': function () {
+      state.dayAnchor = startOfDay(new Date());
       state.weekStart = startOfWeek(new Date());
       state.monthAnchor = firstOfMonth(new Date());
       render();
@@ -601,8 +641,11 @@
       render();
     },
     'pick-day': function (el) {
-      state.weekStart = startOfWeek(parseLocal(el.dataset.date));
-      state.view = 'uge';
+      var d = parseLocal(el.dataset.date);
+      state.dayAnchor = startOfDay(d);
+      state.weekStart = startOfWeek(d);
+      state.calMode = 'dag';
+      state.view = 'kalender';
       render();
     },
     'toggle-cat': function (el) {
@@ -677,11 +720,9 @@
   populateSelect(document.getElementById('nt-assignee'));
 
   var VIEWS = {
-    idag: renderToday,
-    uge: renderWeek,
+    kalender: renderKalender,
     person: renderPerson,
     forsinket: renderMissed,
-    maaned: renderMonth,
     indstillinger: renderSettings
   };
 

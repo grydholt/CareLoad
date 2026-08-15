@@ -66,7 +66,7 @@ button { font: inherit; color: inherit; }
 
 .bottom-nav-inner {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   align-items: center;
   max-width: 68rem;
   margin: 0 auto;
@@ -87,8 +87,7 @@ button { font: inherit; color: inherit; }
   min-width: 0;
 }
 
-.nav-item svg,
-.nav-plus svg {
+.nav-item svg {
   width: 22px;
   height: 22px;
   fill: none;
@@ -109,23 +108,23 @@ button { font: inherit; color: inherit; }
 
 .nav-item.active { color: var(--accent); }
 
-.nav-plus {
-  appearance: none;
-  border: none;
-  justify-self: center;
-  width: 2.9rem;
-  height: 2.9rem;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  cursor: pointer;
+/* "Ny opgave" nav item: a small accent circle as its icon */
+.nav-plus-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow);
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
-.nav-plus svg { width: 24px; height: 24px; stroke-width: 2.2; }
+.nav-item .nav-plus-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.4;
+}
 
 .tab-count {
   position: absolute;
@@ -141,6 +140,22 @@ button { font: inherit; color: inherit; }
   font-weight: 700;
   text-align: center;
 }
+
+/* ------------------------------------------------------------------ */
+/* Kalender sub-menu bar (Dag / Uge / Måned)                           */
+/* ------------------------------------------------------------------ */
+.subtabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 0.9rem;
+}
+
+.subtabs .subtab {
+  flex: 1;
+  text-align: center;
+}
+
+.day-label .today-tag { vertical-align: 0.15em; margin-left: 0.25rem; }
 
 /* ------------------------------------------------------------------ */
 /* Toggle pills (week categories, settings)                            */
