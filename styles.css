@@ -51,96 +51,126 @@ button { font: inherit; color: inherit; }
 }
 
 /* ------------------------------------------------------------------ */
-/* Header                                                              */
+/* Bottom navigation                                                   */
 /* ------------------------------------------------------------------ */
-.app-header {
-  position: sticky;
-  top: 0;
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 20;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
-  padding: 0.6rem 0.9rem 0;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.header-row {
-  display: flex;
+.bottom-nav-inner {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
   max-width: 68rem;
   margin: 0 auto;
 }
 
-.app-name {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.55rem;
-  margin: 0;
-  letter-spacing: 0.01em;
-}
-
-.header-tools {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.viewas {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-.viewas select {
-  font: inherit;
-  font-weight: 700;
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.3rem 0.4rem;
-}
-
-.tabs {
-  display: flex;
-  gap: 0.25rem;
-  max-width: 68rem;
-  margin: 0.55rem auto 0;
-  overflow-x: auto;
-}
-
-.tab {
+.nav-item {
   appearance: none;
   background: none;
   border: none;
-  border-bottom: 3px solid transparent;
-  padding: 0.45rem 0.7rem 0.55rem;
-  font-weight: 700;
-  font-size: 0.95rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.5rem 0.1rem 0.55rem;
   color: var(--muted);
   cursor: pointer;
-  white-space: nowrap;
+  min-width: 0;
 }
 
-.tab.active {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
+.nav-item svg,
+.nav-plus svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
+
+.nav-label {
+  font-size: 0.57rem;
+  font-weight: 700;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-item.active { color: var(--accent); }
+
+.nav-plus {
+  appearance: none;
+  border: none;
+  justify-self: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+}
+
+.nav-plus svg { width: 24px; height: 24px; stroke-width: 2.2; }
 
 .tab-count {
-  display: inline-block;
+  position: absolute;
+  top: 0.15rem;
+  right: 50%;
+  transform: translateX(1.3rem);
   min-width: 1.3em;
   padding: 0 0.3em;
   border-radius: 999px;
   background: var(--ink);
   color: var(--bg);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
+  font-weight: 700;
   text-align: center;
-  vertical-align: 0.1em;
 }
+
+/* ------------------------------------------------------------------ */
+/* Toggle pills (week categories, settings)                            */
+/* ------------------------------------------------------------------ */
+.cat-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.9rem;
+}
+
+.pill {
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.32rem 0.8rem;
+  cursor: pointer;
+}
+
+.pill[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.settings-group { margin-bottom: 1.4rem; }
 
 /* ------------------------------------------------------------------ */
 /* Layout                                                              */
@@ -148,13 +178,14 @@ button { font: inherit; color: inherit; }
 .app-main {
   max-width: 68rem;
   margin: 0 auto;
-  padding: 0.9rem 0.9rem 3rem;
+  padding: 0.9rem 0.9rem 1.2rem;
 }
 
 .app-footer {
   max-width: 68rem;
   margin: 0 auto;
-  padding: 0.8rem 0.9rem 1.6rem;
+  /* Generous bottom padding keeps the note clear of the fixed nav. */
+  padding: 0.8rem 0.9rem 5.5rem;
   color: var(--muted);
   font-size: 0.8rem;
   border-top: 1px solid var(--line);
@@ -310,43 +341,9 @@ button { font: inherit; color: inherit; }
 /* ------------------------------------------------------------------ */
 /* Week view                                                           */
 /* ------------------------------------------------------------------ */
-.husk-shelf {
-  background: var(--surface-2);
-  border: 1.5px dashed var(--line);
-  border-radius: var(--radius);
-  padding: 0.55rem 0.7rem 0.65rem;
-  margin-bottom: 1rem;
-}
-
-.husk-title {
-  margin: 0 0 0.4rem;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--muted);
-}
-
-.husk-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.watch-chip {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid var(--mc);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 0.3rem 0.7rem 0.3rem 0.35rem;
-  font-size: 0.87rem;
-  cursor: pointer;
-  text-align: left;
-}
-
-.watch-chip.mine { background: var(--mt); }
+/* Watch ("husk") items sit in the normal lists but keep a distinct,
+   dashed look — a reminder, not a timed calendar block. */
+.task.watch { border-style: dashed; border-left-style: solid; }
 
 .day { margin-bottom: 0.9rem; }
 

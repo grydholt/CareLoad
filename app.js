@@ -43,8 +43,12 @@
     weekStart: startOfWeek(new Date()),
     monthAnchor: firstOfMonth(new Date()),
     openSheet: null,   // null | 'detail' | 'new'
-    detailId: null
+    detailId: null,
+    // Week-view category toggles. Medicin is off by default so the
+    // many daily medication instances don't drown out the rest.
+    weekCats: {}
   };
+  CATEGORIES.forEach(function (c) { state.weekCats[c.id] = c.id !== 'medicin'; });
   var newTaskCounter = 0;
 
   var memberById = {};
@@ -150,6 +154,7 @@
   function taskCard(t, opts) {
     opts = opts || {};
     var classes = ['task', 'status-' + t.status];
+    if (t.taskType === 'watch') classes.push('watch');
     if (t.assignee === state.viewingAs) classes.push('mine');
     var timeText = '';
     if (opts.showTime !== false && t.start && !isDateOnly(t.start)) {
@@ -178,39 +183,32 @@
       '</div>';
   }
 
-  function watchShelf() {
-    var watches = visibleTasks().filter(function (t) { return t.taskType === 'watch'; });
-    if (!watches.length) return '';
-    var chips = watches.map(function (t) {
-      var classes = ['watch-chip', 'status-' + t.status];
-      if (t.assignee === state.viewingAs) classes.push('mine');
-      var dateText = t.start ? ' · senest ' + fmtDate(parseLocal(t.start)) : '';
-      return '<button type="button" class="' + classes.join(' ') + '" style="' + memberStyle(t.assignee) + '"' +
-        ' data-action="open-task" data-id="' + esc(t.id) + '">' +
-        avatar(t.assignee) +
-        '<span class="task-title">' + esc(t.title) + esc(dateText) + '</span>' +
-        statusMarker(t) +
-        '</button>';
-    }).join('');
-    return '<section class="husk-shelf" aria-label="Husk">' +
-      '<h3 class="husk-title">Husk</h3><div class="husk-chips">' + chips + '</div></section>';
-  }
-
+  // Dated watch items appear on their due day like other tasks
+  // (the dedicated "Husk" shelf is gone); undated ones only in "I dag".
   function tasksOnDay(day) {
     return visibleTasks()
       .filter(function (t) {
-        if (t.taskType === 'watch') return false;
         var d = taskDate(t);
         return d && sameDay(d, day);
       })
       .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
   }
 
+  function categoryPills() {
+    var pills = CATEGORIES.map(function (c) {
+      return '<button type="button" class="pill" aria-pressed="' + (state.weekCats[c.id] ? 'true' : 'false') + '"' +
+        ' data-action="toggle-cat" data-cat="' + esc(c.id) + '">' + esc(c.label) + '</button>';
+    }).join('');
+    return '<div class="cat-pills" role="group" aria-label="Kategorier">' + pills + '</div>';
+  }
+
   function renderWeek() {
     var days = '';
     for (var i = 0; i < 7; i++) {
       var day = addDays(state.weekStart, i);
-      var list = tasksOnDay(day);
+      var list = tasksOnDay(day).filter(function (t) {
+        return state.weekCats[categoryOf(t)];
+      });
       var cards = list.length
         ? list.map(function (t) { return taskCard(t); }).join('')
         : '<p class="empty-day">Ingen opgaver</p>';
@@ -220,7 +218,7 @@
         (isToday(day) ? '<span class="today-tag">i dag</span>' : '') +
         '</h3><div class="day-tasks">' + cards + '</div></section>';
     }
-    return weekNav() + watchShelf() + '<div class="week-days">' + days + '</div>';
+    return weekNav() + categoryPills() + '<div class="week-days">' + days + '</div>';
   }
 
   // ---------------------------------------------------------------------
@@ -228,7 +226,10 @@
   // ---------------------------------------------------------------------
   function renderToday() {
     var today = new Date();
-    var list = tasksOnDay(today);
+    // Today's dated tasks, plus undated watch items ("keep in mind"
+    // has no due date, so it is always part of today).
+    var list = visibleTasks().filter(function (t) { return !t.start; })
+      .concat(tasksOnDay(today));
     var groups = CATEGORIES.map(function (c) {
       var items = list.filter(function (t) { return categoryOf(t) === c.id; });
       if (!items.length) return ''; // skip empty categories
@@ -243,8 +244,28 @@
       (state.viewingAs !== 'all' ? ' for ' + esc(state.viewingAs) : '') + '.</p></div>';
 
     return '<h2 class="view-title">I dag · ' + esc(fmtDateFull(today)) + '</h2>' +
-      watchShelf() +
       '<div class="today-groups">' + body + '</div>';
+  }
+
+  // ---------------------------------------------------------------------
+  // View: Indstillinger (settings)
+  // ---------------------------------------------------------------------
+  function renderSettings() {
+    var pills = [{ id: 'all', label: 'Alle' }].concat(MOCK.members).map(function (m) {
+      return '<button type="button" class="pill" aria-pressed="' + (state.viewingAs === m.id ? 'true' : 'false') + '"' +
+        ' data-action="set-viewas" data-id="' + esc(m.id) + '">' +
+        esc(m.label || m.name) + '</button>';
+    }).join('');
+    return '<h2 class="view-title">Indstillinger</h2>' +
+      '<section class="settings-group">' +
+      '<h3 class="cat-head">Vis opgaver for</h3>' +
+      '<div class="cat-pills" role="group" aria-label="Vis opgaver for">' + pills + '</div>' +
+      '<p class="view-sub">Valget filtrerer alle visninger til den valgte person.</p>' +
+      '</section>' +
+      '<section class="settings-group">' +
+      '<h3 class="cat-head">Om prototypen</h3>' +
+      '<p class="view-sub">Alle opgaver er testdata. Ændringer gemmes ikke og nulstilles, når siden genindlæses.</p>' +
+      '</section>';
   }
 
   // ---------------------------------------------------------------------
@@ -584,6 +605,15 @@
       state.view = 'uge';
       render();
     },
+    'toggle-cat': function (el) {
+      var id = el.dataset.cat;
+      state.weekCats[id] = !state.weekCats[id];
+      render();
+    },
+    'set-viewas': function (el) {
+      state.viewingAs = el.dataset.id;
+      render(); // every view filters to the selected carer
+    },
     'open-task': function (el) { openDetail(el.dataset.id); },
     'open-new': function () { openNew(); },
     'close-sheet': function () { closeSheet(); },
@@ -644,19 +674,16 @@
       return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>';
     }).join('');
   }
-  var viewasSelect = document.getElementById('viewas-select');
-  viewasSelect.innerHTML = '<option value="all">Alle</option>' +
-    MOCK.members.map(function (m) {
-      return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>';
-    }).join('');
-  viewasSelect.value = state.viewingAs;
-  viewasSelect.addEventListener('change', function () {
-    state.viewingAs = viewasSelect.value;
-    render(); // every view filters to the selected carer
-  });
   populateSelect(document.getElementById('nt-assignee'));
 
-  var VIEWS = { idag: renderToday, uge: renderWeek, person: renderPerson, forsinket: renderMissed, maaned: renderMonth };
+  var VIEWS = {
+    idag: renderToday,
+    uge: renderWeek,
+    person: renderPerson,
+    forsinket: renderMissed,
+    maaned: renderMonth,
+    indstillinger: renderSettings
+  };
 
   function render() {
     document.querySelectorAll('.tab').forEach(function (tab) {
