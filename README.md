@@ -19,7 +19,7 @@ Everything except the pixels:
 - **No persistence** — all actions (done, reopen, reassign, delete, new task) work in-memory only; reloading the page resets to the mock data.
 - **No backend** — there is no API; `mock-data.js` is the only data source and the only file meant to be replaced by real API calls later.
 - **No notifications** — no emails, no digests.
-- **No login** — the "Vis" switcher stands in for login: pick a carer to filter every view to that person's tasks, or "Alle" to see everything.
+- **No login** — the carer selector under Indstillinger (bottom nav) stands in for login: pick a carer to filter every view to that person's tasks, or "Alle" to see everything.
 - **Recurrence is pre-generated** — no RRULE expansion; recurring tasks are generated as concrete daily instances for the ~5 weeks around today (and new recurring tasks are generated the same way).
 - **Mock family** — two carers, J and S, with fictional tasks; the current week is deliberately assigned unevenly (~70/30) so the by-person view has something to show.
 
