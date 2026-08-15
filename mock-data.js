@@ -12,6 +12,9 @@
  * pre-generated as concrete daily instances by the generator below,
  * so the app can treat each task as a standalone instance.
  *
+ * Every task carries a category, one of:
+ *   medicin | telefonopkald | aftale | planlæg | køb | andet
+ *
  * The care recipient is referred to as "E" in titles/notes. E is not a
  * member and cannot be assigned tasks.
  */
@@ -60,7 +63,8 @@
       id: 't-' + String(nextId++).padStart(3, '0'),
       location: null,
       notes: '',
-      recurrenceLabel: null
+      recurrenceLabel: null,
+      category: 'andet'
     }, t));
   }
 
@@ -108,7 +112,8 @@
         status: statusFor(end),
         start: dateTimeStr(day, item.h, item.m),
         end: dateTimeStr(day, item.h, item.m + 15),
-        recurrenceLabel: 'Hver dag'
+        recurrenceLabel: 'Hver dag',
+        category: 'medicin'
       });
     }
   }
@@ -128,7 +133,8 @@
       start: dateTimeStr(day, h, m),
       end: dateTimeStr(day, eh, em),
       location: location,
-      recurrenceLabel: recurrenceLabel || null
+      recurrenceLabel: recurrenceLabel || null,
+      category: 'aftale'
     });
   }
 
@@ -164,14 +170,21 @@
     }, opts || {}));
   }
 
-  oneoff(addDays(WINDOW_START, 3), 16, 0, 'Hent recept på apoteket');
+  oneoff(addDays(WINDOW_START, 3), 16, 0, 'Hent recept på apoteket', { category: 'køb' });
   // Guaranteed "missed" example from last week, so the Forsinket view
   // always has a clear, recognizable entry.
-  oneoff(addDays(THIS_MONDAY, -4), 16, 0, 'Hent recept på apoteket', { status: 'missed', assignee: 'S' });
-  oneoff(addDays(THIS_MONDAY, 11), 16, 0, 'Hent recept på apoteket');
-  oneoff(addDays(THIS_MONDAY, -9), 10, 0, 'Bestil ny recept hos egen læge');
-  oneoff(addDays(THIS_MONDAY, 4), 15, 0, 'Køb hudplejemidler til E');
-  oneoff(addDays(THIS_MONDAY, 9), 13, 30, 'Ring til hjemmeplejen om aflastning');
+  oneoff(addDays(THIS_MONDAY, -4), 16, 0, 'Hent recept på apoteket', { status: 'missed', assignee: 'S', category: 'køb' });
+  oneoff(addDays(THIS_MONDAY, 11), 16, 0, 'Hent recept på apoteket', { category: 'køb' });
+  oneoff(addDays(THIS_MONDAY, -9), 10, 0, 'Bestil ny recept hos egen læge', { category: 'telefonopkald' });
+  oneoff(addDays(THIS_MONDAY, 4), 15, 0, 'Køb hudplejemidler til E', { category: 'køb' });
+  oneoff(addDays(THIS_MONDAY, 9), 13, 30, 'Ring til hjemmeplejen om aflastning', { category: 'telefonopkald' });
+
+  // Today-anchored extras, so the "I dag" view always shows a spread
+  // of categories regardless of which weekday it is.
+  var TODAY = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+  oneoff(TODAY, 11, 30, 'Ring til apoteket om E’s recept', { category: 'telefonopkald' });
+  oneoff(TODAY, 15, 0, 'Køb ind til E', { category: 'køb' });
+  oneoff(TODAY, 17, 0, 'Planlæg næste uges kørsel til aftaler', { category: 'planlæg' });
 
   // --- Watch items: exactly two generic placeholders ----------------------
   push({
@@ -181,7 +194,8 @@
     status: 'pending',
     start: null,
     end: null,
-    notes: 'Skriv ned, hvis E spiser tydeligt mindre end normalt.'
+    notes: 'Skriv ned, hvis E spiser tydeligt mindre end normalt.',
+    category: 'andet'
   });
   push({
     title: 'Følg op på henvisning',
@@ -190,7 +204,8 @@
     status: 'pending',
     start: dateStr(addDays(THIS_MONDAY, 9)), // date-only: watch item with a due date
     end: null,
-    notes: 'Henvisningen til fysioterapi – ring hvis der stadig intet svar er.'
+    notes: 'Henvisningen til fysioterapi – ring hvis der stadig intet svar er.',
+    category: 'telefonopkald'
   });
 
   window.CareLoadMock = {

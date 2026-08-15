@@ -20,14 +20,26 @@
     'juli', 'august', 'september', 'oktober', 'november', 'december'];
   var TYPE_LABELS = { oneoff: 'Enkelt', recurring: 'Gentaget', appointment: 'Aftale', watch: 'Husk' };
   var STATUS_LABELS = { pending: 'Afventer', done: 'Færdig', missed: 'Forsinket' };
+  // Fixed category order used by the "I dag" view and the detail sheet.
+  var CATEGORIES = [
+    { id: 'medicin', label: 'Medicin' },
+    { id: 'telefonopkald', label: 'Telefonopkald' },
+    { id: 'aftale', label: 'Aftale' },
+    { id: 'planlæg', label: 'Planlæg' },
+    { id: 'køb', label: 'Køb' },
+    { id: 'andet', label: 'Andet' }
+  ];
+  var CATEGORY_LABELS = {};
+  CATEGORIES.forEach(function (c) { CATEGORY_LABELS[c.id] = c.label; });
+  function categoryOf(t) { return CATEGORY_LABELS[t.category] ? t.category : 'andet'; }
 
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
   var state = {
     tasks: MOCK.tasks.map(function (t) { return Object.assign({}, t); }),
-    view: 'uge',
-    viewingAs: MOCK.members[0].id,
+    view: 'idag',
+    viewingAs: 'all', // 'all' or a member id; a member id filters every view
     weekStart: startOfWeek(new Date()),
     monthAnchor: firstOfMonth(new Date()),
     openSheet: null,   // null | 'detail' | 'new'
@@ -37,6 +49,13 @@
 
   var memberById = {};
   MOCK.members.forEach(function (m) { memberById[m.id] = m; });
+
+  // The tasks every view works from: all of them, or only the selected
+  // carer's when a specific person is chosen in the header switcher.
+  function visibleTasks() {
+    if (state.viewingAs === 'all') return state.tasks;
+    return state.tasks.filter(function (t) { return t.assignee === state.viewingAs; });
+  }
 
   // ---------------------------------------------------------------------
   // Date helpers
@@ -160,7 +179,7 @@
   }
 
   function watchShelf() {
-    var watches = state.tasks.filter(function (t) { return t.taskType === 'watch'; });
+    var watches = visibleTasks().filter(function (t) { return t.taskType === 'watch'; });
     if (!watches.length) return '';
     var chips = watches.map(function (t) {
       var classes = ['watch-chip', 'status-' + t.status];
@@ -178,7 +197,7 @@
   }
 
   function tasksOnDay(day) {
-    return state.tasks
+    return visibleTasks()
       .filter(function (t) {
         if (t.taskType === 'watch') return false;
         var d = taskDate(t);
@@ -205,12 +224,36 @@
   }
 
   // ---------------------------------------------------------------------
+  // View: I dag (today's tasks grouped by category)
+  // ---------------------------------------------------------------------
+  function renderToday() {
+    var today = new Date();
+    var list = tasksOnDay(today);
+    var groups = CATEGORIES.map(function (c) {
+      var items = list.filter(function (t) { return categoryOf(t) === c.id; });
+      if (!items.length) return ''; // skip empty categories
+      return '<section class="cat-group">' +
+        '<h3 class="cat-head">' + esc(c.label) + ' <span class="count">' + items.length + '</span></h3>' +
+        items.map(function (t) { return taskCard(t); }).join('') +
+        '</section>';
+    }).join('');
+
+    var body = groups ||
+      '<div class="empty-state"><p>Ingen opgaver i dag' +
+      (state.viewingAs !== 'all' ? ' for ' + esc(state.viewingAs) : '') + '.</p></div>';
+
+    return '<h2 class="view-title">I dag · ' + esc(fmtDateFull(today)) + '</h2>' +
+      watchShelf() +
+      '<div class="today-groups">' + body + '</div>';
+  }
+
+  // ---------------------------------------------------------------------
   // View: Person (per-member workload for the selected week)
   // ---------------------------------------------------------------------
   function tasksInWeek() {
     var ws = state.weekStart;
     var we = addDays(ws, 7);
-    return state.tasks.filter(function (t) {
+    return visibleTasks().filter(function (t) {
       var d = taskDate(t);
       return d && d >= ws && d < we;
     });
@@ -218,12 +261,15 @@
 
   function renderPerson() {
     var weekTasks = tasksInWeek();
-    var summary = MOCK.members.map(function (m) {
+    var shownMembers = state.viewingAs === 'all'
+      ? MOCK.members
+      : MOCK.members.filter(function (m) { return m.id === state.viewingAs; });
+    var summary = shownMembers.map(function (m) {
       var n = weekTasks.filter(function (t) { return t.assignee === m.id; }).length;
       return '<span class="summary-part" style="' + memberStyle(m.id) + '">' + avatar(m.id) + ' ' + n + ' opgaver</span>';
     }).join('');
 
-    var cards = MOCK.members.map(function (m) {
+    var cards = shownMembers.map(function (m) {
       var mine = weekTasks
         .filter(function (t) { return t.assignee === m.id; })
         .sort(function (a, b) { return a.start < b.start ? -1 : 1; });
@@ -261,7 +307,7 @@
   // View: Forsinket (missed list)
   // ---------------------------------------------------------------------
   function renderMissed() {
-    var missed = state.tasks
+    var missed = visibleTasks()
       .filter(function (t) { return t.status === 'missed'; })
       .sort(function (a, b) {
         var da = a.start || '';
@@ -298,7 +344,7 @@
     var gridStart = startOfWeek(anchor);
     var lastOfMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
     var byDay = {};
-    state.tasks.forEach(function (t) {
+    visibleTasks().forEach(function (t) {
       var d = taskDate(t);
       if (!d) return;
       var k = dateKey(d);
@@ -340,6 +386,7 @@
     var meta = [];
     meta.push('<p class="detail-meta"><strong>Type:</strong> ' + TYPE_LABELS[t.taskType] +
       (t.recurrenceLabel ? ' · ' + esc(t.recurrenceLabel) : '') + '</p>');
+    meta.push('<p class="detail-meta"><strong>Kategori:</strong> ' + CATEGORY_LABELS[categoryOf(t)] + '</p>');
     meta.push('<p class="detail-meta"><strong>Hvornår:</strong> ' + esc(taskTimeText(t)) + '</p>');
     if (t.location) meta.push('<p class="detail-meta"><strong>Sted:</strong> ' + esc(t.location) + '</p>');
     if (t.notes) meta.push('<p class="detail-meta"><strong>Noter:</strong> ' + esc(t.notes) + '</p>');
@@ -380,7 +427,8 @@
   function openNew() {
     state.openSheet = 'new';
     newForm.reset();
-    document.getElementById('nt-assignee').value = state.viewingAs;
+    document.getElementById('nt-assignee').value =
+      state.viewingAs !== 'all' ? state.viewingAs : MOCK.members[0].id;
     document.getElementById('nt-date').value = dateKey(new Date());
     document.getElementById('nt-time').value = '12:00';
     document.getElementById('new-form-error').hidden = true;
@@ -440,6 +488,7 @@
       taskType: type,
       assignee: assignee,
       status: 'pending',
+      category: newForm.elements.category.value,
       location: type === 'appointment' ? (newForm.elements.location.value.trim() || null) : null,
       notes: newForm.elements.notes.value.trim(),
       recurrenceLabel: null
@@ -498,7 +547,8 @@
       state.weekStart = startOfWeek(d0);
       state.monthAnchor = firstOfMonth(d0);
       if (state.view === 'forsinket') state.view = 'uge';
-    } else if (state.view !== 'uge') {
+      if (state.view === 'idag' && !sameDay(d0, new Date())) state.view = 'uge';
+    } else if (state.view !== 'uge' && state.view !== 'idag') {
       state.view = 'uge'; // undated watch items live on the Husk shelf
     }
     closeSheet();
@@ -580,6 +630,10 @@
   });
   newForm.addEventListener('change', function (e) {
     if (e.target.name === 'taskType' || e.target.name === 'recurrence') updateNewFormVisibility();
+    // Choosing the appointment type suggests the matching category.
+    if (e.target.name === 'taskType' && e.target.value === 'appointment') {
+      newForm.elements.category.value = 'aftale';
+    }
   });
 
   // ---------------------------------------------------------------------
@@ -591,15 +645,18 @@
     }).join('');
   }
   var viewasSelect = document.getElementById('viewas-select');
-  populateSelect(viewasSelect);
+  viewasSelect.innerHTML = '<option value="all">Alle</option>' +
+    MOCK.members.map(function (m) {
+      return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>';
+    }).join('');
   viewasSelect.value = state.viewingAs;
   viewasSelect.addEventListener('change', function () {
     state.viewingAs = viewasSelect.value;
-    render(); // affects highlighting only
+    render(); // every view filters to the selected carer
   });
   populateSelect(document.getElementById('nt-assignee'));
 
-  var VIEWS = { uge: renderWeek, person: renderPerson, forsinket: renderMissed, maaned: renderMonth };
+  var VIEWS = { idag: renderToday, uge: renderWeek, person: renderPerson, forsinket: renderMissed, maaned: renderMonth };
 
   function render() {
     document.querySelectorAll('.tab').forEach(function (tab) {
@@ -607,7 +664,7 @@
       tab.classList.toggle('active', active);
       tab.setAttribute('aria-current', active ? 'page' : 'false');
     });
-    var missedCount = state.tasks.filter(function (t) { return t.status === 'missed'; }).length;
+    var missedCount = visibleTasks().filter(function (t) { return t.status === 'missed'; }).length;
     var countEl = document.getElementById('missed-count');
     countEl.textContent = missedCount;
     countEl.hidden = missedCount === 0;
