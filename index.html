@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareLoad</title>
+  <meta name="description" content="CareLoad – prototype af familiens omsorgs-opgaveplan.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Karla:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-row">
+      <h1 class="app-name">CareLoad</h1>
+      <div class="header-tools">
+        <label class="viewas">
+          <span class="viewas-label">Ser som:</span>
+          <select id="viewas-select" aria-label="Vælg hvem du ser som"></select>
+        </label>
+        <button type="button" class="btn btn-primary" data-action="open-new">+ Ny opgave</button>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Visninger">
+      <button type="button" class="tab" data-action="switch-view" data-view="uge">Uge</button>
+      <button type="button" class="tab" data-action="switch-view" data-view="person">Person</button>
+      <button type="button" class="tab" data-action="switch-view" data-view="forsinket">Forsinket <span id="missed-count" class="tab-count" hidden></span></button>
+      <button type="button" class="tab" data-action="switch-view" data-view="maaned">Måned</button>
+    </nav>
+  </header>
+
+  <main id="app" class="app-main"></main>
+
+  <footer class="app-footer">
+    Prototype – alle opgaver er testdata. Ændringer gemmes ikke og nulstilles, når siden genindlæses.
+  </footer>
+
+  <!-- Backdrop shared by both sheets -->
+  <div id="backdrop" class="backdrop" hidden data-action="close-sheet"></div>
+
+  <!-- Task detail sheet (bottom sheet on mobile, modal on desktop) -->
+  <section id="detail-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+    <div id="detail-content"></div>
+  </section>
+
+  <!-- New task sheet -->
+  <section id="new-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="new-title" hidden>
+    <div class="sheet-head">
+      <h2 id="new-title" class="sheet-title">Ny opgave</h2>
+      <button type="button" class="btn-icon" data-action="close-sheet" aria-label="Luk">✕</button>
+    </div>
+    <form id="new-task-form" novalidate>
+      <div class="field">
+        <label for="nt-title">Titel</label>
+        <input id="nt-title" name="title" type="text" required autocomplete="off"
+               placeholder="F.eks. Hent recept på apoteket">
+      </div>
+
+      <fieldset class="field">
+        <legend>Type</legend>
+        <div class="segmented" role="radiogroup">
+          <label><input type="radio" name="taskType" value="oneoff" checked><span>Enkelt</span></label>
+          <label><input type="radio" name="taskType" value="recurring"><span>Gentaget</span></label>
+          <label><input type="radio" name="taskType" value="appointment"><span>Aftale</span></label>
+          <label><input type="radio" name="taskType" value="watch"><span>Husk</span></label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="nt-assignee">Ansvarlig</label>
+        <select id="nt-assignee" name="assignee" required></select>
+      </div>
+
+      <div class="field-row">
+        <div class="field" id="row-date">
+          <label for="nt-date">Dato</label>
+          <input id="nt-date" name="date" type="date">
+          <p class="hint" id="hint-watch-date" hidden>Valgfri for Husk-opgaver – lad feltet stå tomt, hvis der ikke er en frist.</p>
+        </div>
+        <div class="field" id="row-time">
+          <label for="nt-time">Tidspunkt</label>
+          <input id="nt-time" name="time" type="time" value="12:00">
+        </div>
+      </div>
+
+      <fieldset class="field" id="row-recurrence" hidden>
+        <legend>Gentagelse</legend>
+        <div class="stack" role="radiogroup">
+          <label class="radio-line"><input type="radio" name="recurrence" value="daily" checked> Hver dag</label>
+          <label class="radio-line"><input type="radio" name="recurrence" value="weekdays"> Hverdage (man–fre)</label>
+          <label class="radio-line"><input type="radio" name="recurrence" value="weekly"> Ugentligt på valgte dage</label>
+        </div>
+        <div class="weekday-picker" id="row-weekdays" hidden>
+          <label><input type="checkbox" name="weekday" value="0"><span>man</span></label>
+          <label><input type="checkbox" name="weekday" value="1"><span>tir</span></label>
+          <label><input type="checkbox" name="weekday" value="2"><span>ons</span></label>
+          <label><input type="checkbox" name="weekday" value="3"><span>tor</span></label>
+          <label><input type="checkbox" name="weekday" value="4"><span>fre</span></label>
+          <label><input type="checkbox" name="weekday" value="5"><span>lør</span></label>
+          <label><input type="checkbox" name="weekday" value="6"><span>søn</span></label>
+        </div>
+      </fieldset>
+
+      <div class="field" id="row-location" hidden>
+        <label for="nt-location">Sted</label>
+        <input id="nt-location" name="location" type="text" autocomplete="off"
+               placeholder="F.eks. Rigshospitalet, DAF ambulatorium">
+      </div>
+
+      <div class="field">
+        <label for="nt-notes">Noter</label>
+        <textarea id="nt-notes" name="notes" rows="2"></textarea>
+      </div>
+
+      <p class="form-error" id="new-form-error" hidden></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="btn" data-action="close-sheet">Annuller</button>
+        <button type="submit" class="btn btn-primary">Gem opgave</button>
+      </div>
+    </form>
+  </section>
+
+  <script src="./mock-data.js"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>
