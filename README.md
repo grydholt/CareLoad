@@ -33,11 +33,16 @@ mock-data.js    — members + generated tasks; replace with real API calls later
 spec/care-load-spec.md — full product spec (v1.0)
 ```
 
-## Enabling GitHub Pages
+## GitHub Pages
 
-1. In the repository, go to **Settings → Pages**.
-2. Under **Source**, choose **Deploy from a branch**.
-3. Select branch **`main`** and folder **`/ (root)`**, then save.
-4. The prototype will be served at `https://<owner>.github.io/<repo>/` after a minute or two.
+Deployment is automatic: every push to `main` runs the
+[`deploy-pages` workflow](.github/workflows/deploy-pages.yml), which uploads
+the repository root to GitHub Pages. The first run also creates the Pages
+site, so no manual setup is needed. The prototype is served at
+`https://<owner>.github.io/<repo>/`.
 
-The prototype uses only relative paths and no build step, so it works from a project subpath out of the box.
+If the first workflow run fails on the "Configure Pages" step, enable Pages
+once by hand (**Settings → Pages → Source: GitHub Actions**) and re-run it.
+
+The prototype uses only relative paths and no build step, so it works from a
+project subpath out of the box.
