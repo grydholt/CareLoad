@@ -388,6 +388,46 @@ button { font: inherit; color: inherit; }
 }
 
 /* ------------------------------------------------------------------ */
+/* I dag view (tasks grouped by category)                              */
+/* ------------------------------------------------------------------ */
+.today-groups {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cat-group { margin-bottom: 0.6rem; }
+
+.cat-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.cat-head .count {
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
+  background: var(--line);
+  border-radius: 999px;
+  padding: 0 0.3em;
+  color: var(--ink);
+}
+
+@media (min-width: 720px) {
+  .today-groups {
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    gap: 0.4rem 1.2rem;
+    align-items: start;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Person view                                                         */
 /* ------------------------------------------------------------------ */
 .week-summary {
